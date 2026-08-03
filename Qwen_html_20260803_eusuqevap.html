@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1B1614">
+<!-- Режим приложения на телефоне -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Моя библиотека">
+<title>Моя библиотека</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Literata:ital,wght@0,400;0,500;0,600;1,400&family=Manrope:wght@400;500;600;700&display=swap');
+
+:root{
+  --bg:#1B1614; --surface:#241D19; --surface-2:#2E2521;
+  --border:rgba(255,255,255,0.08); --text:#EDE6DD; --muted:#A99B8E; --gold:#C9A227;
+  --g-religion:#9C8156; --g-melodrama:#B5566B; --g-love:#C46A5E; --g-gentleman:#3F7A5E;
+  --g-drama:#5C6E91; --g-other:#6B7280;
+}
+*{box-sizing:border-box;}
+html{-webkit-text-size-adjust:100%;}
+html,body{margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Manrope',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;}
+h1,h2,h3{margin:0;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;touch-action:manipulation;}
+
+.header{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 12px;max-width:640px;margin:0 auto;}
+.header h1{font-size:20px;font-weight:700;letter-spacing:-0.01em;}
+.header .sub{color:var(--muted);font-size:12.5px;margin-top:2px;}
+.add-btn{background:var(--gold);color:#1F1600;font-weight:700;font-size:14px;padding:10px 16px;border-radius:12px;display:flex;align-items:center;gap:6px;}
+.add-btn:active{transform:scale(.96);}
+
+.filters{display:flex;gap:8px;padding:0 20px 14px;max-width:640px;margin:0 auto;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.filter-chip{padding:7px 14px;border-radius:20px;font-size:13px;font-weight:600;background:var(--surface);border:1px solid var(--border);color:var(--muted);white-space:nowrap;}
+.filter-chip.active{background:var(--surface-2);color:var(--text);border-color:rgba(255,255,255,0.18);}
+
+.shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:14px;padding:6px 20px 100px;max-width:640px;margin:0 auto;}
+.genre-note{grid-column:1/-1;color:var(--muted);font-size:13px;font-style:italic;padding:2px 2px 6px;}
+.book-spine{border-radius:10px 10px 4px 4px;padding:16px 12px;min-height:170px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.3);border-left:4px solid rgba(255,255,255,0.25);}
+.book-spine .genre-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;opacity:.85;}
+.book-spine .title{font-family:'Literata',serif;font-size:15px;font-weight:600;line-height:1.3;margin-top:8px;}
+.book-spine .prog-wrap{margin-top:10px;}
+.book-spine .prog-bar{height:4px;background:rgba(0,0,0,0.25);border-radius:4px;overflow:hidden;}
+.book-spine .prog-fill{height:100%;background:rgba(255,255,255,0.85);}
+.book-spine .prog-pct{font-size:10.5px;margin-top:4px;opacity:.85;}
+.book-spine .del{position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;font-size:11px;}
+.empty-state{text-align:center;color:var(--muted);padding:60px 30px;font-size:14px;line-height:1.6;grid-column:1/-1;}
+
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.55);display:none;align-items:flex-end;justify-content:center;z-index:100;}
+.modal-bg.show{display:flex;}
+.modal{background:var(--surface);border-radius:20px 20px 0 0;padding:22px;padding-bottom:calc(22px + env(safe-area-inset-bottom));max-width:640px;width:100%;border:1px solid var(--border);border-bottom:none;max-height:92vh;overflow-y:auto;}
+.modal h2{font-size:17px;margin-bottom:16px;}
+.field-label{font-size:12.5px;color:var(--muted);margin:14px 0 6px;}
+input[type=file]{width:100%;color:var(--muted);font-size:13px;}
+input[type=text]{width:100%;background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:11px 12px;font-size:14px;}
+.genre-row{display:flex;gap:8px;flex-wrap:wrap;}
+.genre-pick{padding:9px 14px;border-radius:10px;font-size:13.5px;font-weight:600;background:var(--surface-2);border:1px solid var(--border);color:var(--muted);}
+.genre-pick.selected{color:#fff;border-color:transparent;}
+.btn{background:var(--gold);color:#1F1600;font-weight:700;border-radius:12px;padding:12px;font-size:14.5px;width:100%;margin-top:18px;}
+.btn.secondary{background:var(--surface-2);color:var(--text);border:1px solid var(--border);margin-top:8px;}
+.btn:disabled{opacity:.5;}
+.loading-line{color:var(--muted);font-size:13px;text-align:center;padding:10px 0;}
+
+.reader{position:fixed;inset:0;background:var(--reader-bg,#1B1614);z-index:200;display:none;flex-direction:column;}
+.reader.show{display:flex;}
+.reader-top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top));border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0;}
+.reader-top .title{font-size:14px;font-weight:600;color:var(--reader-text,#EDE6DD);max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'Literata',serif;}
+.icon-btn{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.06);color:var(--reader-text,#EDE6DD);font-size:16px;}
+.reader-body{flex:1;overflow-y:auto;padding:26px 22px calc(60px + env(safe-area-inset-bottom));color:var(--reader-text,#EDE6DD);font-family:'Literata',serif;white-space:pre-wrap;-webkit-overflow-scrolling:touch;}
+.reader-content{max-width:42rem;margin:0 auto;}
+.reader-progress{padding:8px 16px calc(14px + env(safe-area-inset-bottom));font-size:11.5px;color:var(--muted);text-align:center;flex-shrink:0;}
+.reader-settings{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-radius:20px 20px 0 0;padding:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom));z-index:210;display:none;border:1px solid var(--border);border-bottom:none;max-height:80vh;overflow-y:auto;}
+.reader-settings.show{display:block;}
+.rs-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.rs-row .lab{font-size:13.5px;color:var(--muted);}
+.rs-controls{display:flex;gap:8px;}
+.rs-controls button{width:38px;height:38px;border-radius:9px;background:var(--surface-2);border:1px solid var(--border);font-size:15px;color:var(--text);}
+.theme-dot{width:32px;height:32px;border-radius:50%;;border:2px solid transparent;}
+.theme-dot.selected{border-color:var(--gold);}
+
+#toast{position:fixed;bottom:calc(26px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface-2);color:var(--text);padding:10px 18px;border-radius:30px;font-size:13px;border:1px solid var(--border);opacity:0;pointer-events:none;transition:all .3s ease;z-index:300;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+@media (max-width:480px){
+  .header{padding:16px 14px 10px;}
+  .header h1{font-size:18px;}
+  .add-btn{padding:9px 13px;font-size:13px;}
+  .filters{padding:0 14px 12px;}
+  .shelf{gap:12px;padding:4px 14px 90px;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));}
+  .book-spine{min-height:150px;padding:14px 10px;}
+  .book-spine .title{font-size:14px;}
+  .reader-body{padding:20px 16px calc(50px + env(safe-area-inset-bottom));}
+  .modal{padding:18px 16px calc(18px + env(safe-area-inset-bottom));}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Моя библиотека</h1>
+    <div class="sub" id="libSub">Загрузка…</div>
+  </div>
+  <button class="add-btn" onclick="openAddModal()">＋ Добавить</button>
+</div>
+
+<div class="filters" id="filters"></div>
+<div class="shelf" id="shelf"></div>
+
+<div class="modal-bg" id="addModal">
+  <div class="modal">
+    <h2>Добавить книгу</h2>
+    <div class="field-label">Файл (.txt, .epub или .pdf)</div>
+    <input type="file" id="bookFile" accept=".txt,.epub,.pdf">
+    <div class="field-label">Название (можно поправить)</div>
+    <input type="text" id="bookTitle" placeholder="Название книги">
+    <div class="field-label">Жанр</div>
+    <div class="genre-row" id="genreRow"></div>
+    <div id="parseStatus"></div>
+    <button class="btn" id="saveBookBtn" onclick="saveBook()">Сохранить в библиотеку</button>
+    <button class="btn secondary" onclick="closeAddModal()">Отмена</button>
+  </div>
+</div>
+
+<div class="reader" id="reader">
+  <div class="reader-top">
+    <button class="icon-btn" onclick="closeReader()">←</button>
+    <div class="title" id="readerTitle"></div>
+    <button class="icon-btn" onclick="toggleReaderSettings()">Aa</button>
+  </div>
+  <div class="reader-body" id="readerBody"></div>
+  <div class="reader-progress" id="readerProgress"></div>
+</div>
+
+<div class="reader-settings" id="readerSettings">
+  <div class="rs-row">
+    <div class="lab">Размер шрифта</div>
+    <div class="rs-controls">
+      <button onclick="changeFontSize(-1)">A-</button>
+      <button onclick="changeFontSize(1)">A+</button>
+    </div>
+  </div>
+  <div class="rs-row">
+    <div class="lab">Межстрочный интервал</div>
+    <div class="rs-controls">
+      <button onclick="changeLineHeight(-0.1)">−</button>
+      <button onclick="changeLineHeight(0.1)">+</button>
+    </div>
+  </div>
+  <div class="rs-row">
+    <div class="lab">Тема</div>
+    <div class="rs-controls">
+      <button class="theme-dot" style="background:#1B1614;" onclick="setTheme('dark')" id="theme-dark"></button>
+      <button class="theme-dot" style="background:#EFE6D5;" onclick="setTheme('sepia')" id="theme-sepia"></button>
+      <button class="theme-dot" style="background:#FAFAF7;" onclick="setTheme('light')" id="theme-light"></button>
+    </div>
+  </div>
+  <button class="btn secondary" onclick="toggleReaderSettings()">Готово</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+if (window.pdfjsLib) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+const GENRES = [
+  {id:'religion', label:'Религия', color:'var(--g-religion)'},
+  {id:'melodrama', label:'Мелодрама', color:'var(--g-melodrama)'},
+  {id:'love', label:'Любовь', color:'var(--g-love)'},
+  {id:'gentleman', label:'Джентльмен', color:'var(--g-gentleman)',
+   desc:'Как мужчина должен относиться к своей жене и девушке.'},
+  {id:'drama', label:'Драма', color:'var(--g-drama)'},
+  {id:'other', label:'Другое', color:'var(--g-other)'}
+];
+const THEMES = {
+  dark:{bg:'#1B1614', text:'#EDE6DD'},
+  sepia:{bg:'#EFE6D5', text:'#3B2F26'},
+  light:{bg:'#FAFAF7', text:'#2A2622'}
+};
+
+let books = [];
+let activeFilter = 'all';
+let currentBookId = null;
+let selectedGenre = 'other';
+let parsedText = null;
+let readerSettings = { fontSize:19, lineHeight:1.7, theme:'dark' };
+let scrollSaveTimer = null;
+
+function genreInfo(id){ return GENRES.find(g=>g.id===id) || GENRES[GENRES.length-1]; }
+
+function storeGet(key, fallback){
+  try{ const v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : fallback; }
+  catch(e){ return fallback; }
+}
+function storeSet(key, value){
+  try{ localStorage.setItem(key, JSON.stringify(value)); return true; }
+  catch(e){ showToast('Ошибка сохранения'); console.error(e); return false; }
+}
+function storeGetText(key){
+  try{ return localStorage.getItem(key) || ''; }catch(e){ return ''; }
+}
+function storeSetText(key, value){
+  try{ localStorage.setItem(key, value); return true; }
+  catch(e){ showToast('Ошибка сохранения'); console.error(e); return false; }
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1800);
+}
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+function init(){
+  books = storeGet('meta:books', []);
+  readerSettings = storeGet('settings:reader', readerSettings);
+  renderFilters(); renderShelf();
+}
+
+function renderFilters(){
+  const el = document.getElementById('filters');
+  const all = [{id:'all',label:'Все'}, ...GENRES];
+  el.innerHTML = all.map(g=>`<button class="filter-chip ${activeFilter===g.id?'active':''}" onclick="setFilter('${g.id}')">${g.label}</button>`).join('');
+}
+function setFilter(id){ activeFilter = id; renderFilters(); renderShelf(); }
+
+function renderShelf(){
+  document.getElementById('libSub').textContent = `${books.length} ${books.length===1?'книга':books.length<5?'книги':'книг'} в библиотеке`;
+  const shelf = document.getElementById('shelf');
+  const list = activeFilter==='all' ? books : books.filter(b=>b.genre===activeFilter);
+  const g = GENRES.find(x=>x.id===activeFilter);
+  const note = (g && g.desc) ? `<div class="genre-note">${g.desc}</div>` : '';
+  if(list.length===0){
+    shelf.innerHTML = note + `<div class="empty-state">Пока пусто.<br>Нажми «＋ Добавить», чтобы загрузить книгу (.txt, .epub или .pdf).</div>`;
+    return;
+  }
+  shelf.innerHTML = note + list.map(b=>{
+    const gi = genreInfo(b.genre);
+    const pct = Math.round((b.position||0)*100);
+    return `
+    <div class="book-spine" style="background:${gi.color};" onclick="openReader('${b.id}')">
+      <button class="del" onclick="event.stopPropagation();deleteBook('${b.id}')">✕</button>
+      <div class="genre-tag">${gi.label}</div>
+      <div class="title">${escapeHtml(b.title)}</div>
+      <div class="prog-wrap">
+        <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
+        <div class="prog-pct">${pct}% прочитано</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+function openAddModal(){
+  document.getElementById('addModal').classList.add('show');
+  document.getElementById('bookFile').value='';
+  document.getElementById('bookTitle').value='';
+  document.getElementById('parseStatus').innerHTML='';
+  selectedGenre='other'; parsedText=null;
+  renderGenreRow();
+  document.getElementById('bookFile').onchange = handleFileSelect;
+}
+function closeAddModal(){ document.getElementById('addModal').classList.remove('show'); }
+function renderGenreRow(){
+  document.getElementById('genreRow').innerHTML = GENRES.map(g=>`
+    <button class="genre-pick ${selectedGenre===g.id?'selected':''}" style="${selectedGenre===g.id?`background:${g.color};`:''}" onclick="pickGenre('${g.id}')">${g.label}</button>
+  `).join('');
+}
+function pickGenre(id){ selectedGenre=id; renderGenreRow(); }
+
+async function handleFileSelect(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const statusEl = document.getElementById('parseStatus');
+  const lowerName = file.name.toLowerCase();
+  document.getElementById('bookTitle').value = file.name.replace(/\.(txt|epub|pdf)$/i,'');
+
+  if(lowerName.endsWith('.pdf')){
+    statusEl.innerHTML = '<div class="loading-line">Разбираю PDF…</div>';
+    if(typeof pdfjsLib === 'undefined'){
+      statusEl.innerHTML = '<div class="loading-line">Не удалось загрузить модуль PDF. Попробуй .txt или .epub</div>';
+      parsedText = null; return;
+    }
+    try{
+      const result = await extractPdf(file, (p,n)=>{
+        statusEl.innerHTML = `<div class="loading-line">Обрабатываю PDF… стр. ${p} из ${n}</div>`;
+      });
+      parsedText = result.text;
+      if(result.title) document.getElementById('bookTitle').value = result.title;
+      statusEl.innerHTML = `<div class="loading-line">Готово · ${result.pages} стр. · ~${Math.round(parsedText.length/1000)} тыс. символов</div>`;
+    }catch(err){
+      console.error(err); parsedText = null;
+      if(err && err.name === 'NoTextLayer'){
+        statusEl.innerHTML = '<div class="loading-line">В этом PDF нет текстового слоя (скан). Возьми .txt или .epub</div>';
+      } else if(err && err.name === 'PasswordException'){
+        statusEl.innerHTML = '<div class="loading-line">PDF защищён паролем или повреждён</div>';
+      } else {
+        statusEl.innerHTML = '<div class="loading-line">Не удалось разобрать PDF</div>';
+      }
+    }
+  }
+  else if(lowerName.endsWith('.epub')){
+    statusEl.innerHTML = '<div class="loading-line">Разбираю epub-файл…</div>';
+    try{
+      const result = await extractEpub(file);
+      parsedText = result.text;
+      if(result.title) document.getElementById('bookTitle').value = result.title;
+      statusEl.innerHTML = `<div class="loading-line">Готово · ~${Math.round(parsedText.length/1000)} тыс. символов</div>`;
+    }catch(err){
+      console.error(err);
+      statusEl.innerHTML = '<div class="loading-line">Не удалось разобрать epub</div>';
+      parsedText = null;
+    }
+  }
+  else {
+    try{
+      parsedText = await file.text();
+      statusEl.innerHTML = `<div class="loading-line">Готово · ~${Math.round(parsedText.length/1000)} тыс. символов</div>`;
+    }catch(err){
+      statusEl.innerHTML = '<div class="loading-line">Не удалось прочитать файл</div>';
+    }
+  }
+}
+
+/* ---------- PDF: аккуратное извлечение текста ---------- */
+async function extractPdf(file, onProgress){
+  const data = new Uint8Array(await file.arrayBuffer());
+  const pdf = await pdfjsLib.getDocument({ data }).promise;
+  let fullText = '';
+
+  for(let p=1; p<=pdf.numPages; p++){
+    if(onProgress) onProgress(p, pdf.numPages);
+    const page = await pdf.getPage(p);
+    const tc = await page.getTextContent();
+
+    const lines = [];
+    let cur = null;
+    for(const it of tc.items){
+      if(typeof it.str !== 'string' || !it.str) continue;
+      const tr = it.transform || [0,0,0,0,0,0];
+      const x = tr[4], y = tr[5];
+      const h = Math.abs(tr[3]) || Math.abs(tr[0]) || it.height || 10;
+      if(!cur || Math.abs(y - cur.y) > h*0.6){
+        if(cur) lines.push(cur);
+        cur = { y, h, text: it.str, endX: x + (it.width || 0) };
+      } else {
+        const gap = x - cur.endX;
+        cur.text += (gap > h*0.2) ? ' ' + it.str : it.str;
+        cur.endX = x + (it.width || 0);
+        cur.h = Math.max(cur.h, h);
+      }
+    }
+    if(cur) lines.push(cur);
+
+    let para = '';
+    for(let i=0; i<lines.length; i++){
+      const line = lines[i].text.replace(/\s+/g,' ').trim();
+      if(!line) continue;
+      if(/^\d{1,4}$/.test(line)) continue;
+      const next = lines[i+1];
+      const gap = next ? (lines[i].y - next.y) : 9999;
+      const lineH = lines[i].h || 12;
+
+      if(!para){ para = line; }
+      else if(para.endsWith('-') && /^[a-zа-яё]/.test(line)){ para = para.slice(0,-1) + line; }
+      else { para += ' ' + line; }
+
+      if(gap > lineH*1.45){ fullText += para.trim() + '\n\n'; para = ''; }
+    }
+    if(para) fullText += para.trim() + '\n\n';
+  }
+
+  let text = fullText
+    .replace(/([а-яёa-z0-9])\s+-\s+([а-яёa-z0-9])/gi, '$1-$2')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  if(text.length < 40){
+    const err = new Error('PDF without text layer');
+    err.name = 'NoTextLayer';
+    throw err;
+  }
+
+  let title = '';
+  try{
+    const meta = await pdf.getMetadata();
+    if(meta && meta.info && meta.info.Title) title = String(meta.info.Title).trim();
+  }catch(e){}
+
+  return { text, title, pages: pdf.numPages };
+}
+
+async function extractEpub(file){
+  const zip = await JSZip.loadAsync(file);
+  const containerFile = zip.file('META-INF/container.xml');
+  if(!containerFile) throw new Error('no container.xml');
+  const containerXml = await containerFile.async('string');
+  const containerDoc = new DOMParser().parseFromString(containerXml,'application/xml');
+  const opfPath = containerDoc.querySelector('rootfile').getAttribute('full-path');
+  const opfDir = opfPath.includes('/') ? opfPath.substring(0,opfPath.lastIndexOf('/')+1) : '';
+  const opfFile = zip.file(opfPath);
+  const opfXml = await opfFile.async('string');
+  const opfDoc = new DOMParser().parseFromString(opfXml,'application/xml');
+
+  let titleEl = opfDoc.getElementsByTagName('dc:title')[0] || opfDoc.getElementsByTagName('title')[0];
+  let title = titleEl ? titleEl.textContent.trim() : '';
+
+  const manifestItems = {};
+  Array.from(opfDoc.getElementsByTagName('item')).forEach(item=>{
+    manifestItems[item.getAttribute('id')] = item.getAttribute('href');
+  });
+  const spineIds = Array.from(opfDoc.getElementsByTagName('itemref')).map(i=>i.getAttribute('idref'));
+
+  let fullText = '';
+  for(const id of spineIds){
+    const href = manifestItems[id];
+    if(!href) continue;
+    const path = (opfDir + href).replace(/^\//,'');
+    let entry = zip.file(path) || zip.file(decodeURIComponent(path));
+    if(!entry) continue;
+    const html = await entry.async('string');
+    let text;
+    try{
+      const doc = new DOMParser().parseFromString(html,'text/html');
+      text = doc.body ? doc.body.textContent : html.replace(/<[^>]+>/g,' ');
+    }catch(e){ text = html.replace(/<[^>]+>/g,' '); }
+    text = text.replace(/[ \t]+/g,' ').trim();
+    if(text) fullText += text + '\n\n\n';
+  }
+  return { title, text: fullText.trim() };
+}
+
+function saveBook(){
+  const title = document.getElementById('bookTitle').value.trim();
+  if(!title){ showToast('Введи название'); return; }
+  if(!parsedText){ showToast('Выбери и дождись обработки файла'); return; }
+  if(parsedText.length > 4.5*1024*1024){ showToast('Файл слишком большой'); return; }
+  const btn = document.getElementById('saveBookBtn');
+  btn.disabled = true; btn.textContent='Сохраняю…';
+  const id = uid();
+  storeSetText('content:'+id, parsedText);
+  books.push({ id, title, genre: selectedGenre, addedDate: new Date().toISOString().slice(0,10), charCount: parsedText.length, position: 0 });
+  storeSet('meta:books', books);
+  btn.disabled = false; btn.textContent='Сохранить в библиотеку';
+  showToast('Книга добавлена');
+  closeAddModal();
+  renderShelf();
+}
+
+function deleteBook(id){
+  if(!confirm('Удалить эту книгу?')) return;
+  books = books.filter(b=>b.id!==id);
+  storeSet('meta:books', books);
+  try{ localStorage.removeItem('content:'+id); }catch(e){}
+  showToast('Книга удалена');
+  renderShelf();
+}
+
+function openReader(id){
+  const book = books.find(b=>b.id===id);
+  if(!book) return;
+  currentBookId = id;
+  document.getElementById('readerTitle').textContent = book.title;
+  const body = document.getElementById('readerBody');
+  body.innerHTML = '<div class="loading-line">Открываю книгу…</div>';
+  document.getElementById('reader').classList.add('show');
+  applyReaderStyles();
+  const text = storeGetText('content:'+id);
+  body.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'reader-content';
+  wrap.textContent = text || '(не удалось загрузить текст)';
+  body.appendChild(wrap);
+  requestAnimationFrame(()=>{
+    const ratio = book.position || 0;
+    const maxScroll = body.scrollHeight - body.clientHeight;
+    body.scrollTop = ratio * maxScroll;
+  });
+  body.onscroll = onReaderScroll;
+  updateProgressLabel(book.position||0);
+}
+function closeReader(){
+  document.getElementById('reader').classList.remove('show');
+  document.getElementById('readerSettings').classList.remove('show');
+  currentBookId = null;
+  renderShelf();
+}
+function onReaderScroll(e){
+  const body = e.target;
+  const maxScroll = body.scrollHeight - body.clientHeight;
+  const ratio = maxScroll>0 ? body.scrollTop/maxScroll : 0;
+  updateProgressLabel(ratio);
+  clearTimeout(scrollSaveTimer);
+  scrollSaveTimer = setTimeout(()=>{
+    const book = books.find(b=>b.id===currentBookId);
+    if(book){ book.position = ratio; storeSet('meta:books', books); }
+  }, 600);
+}
+function updateProgressLabel(ratio){
+  document.getElementById('readerProgress').textContent = `${Math.round(ratio*100)}% прочитано`;
+}
+
+function toggleReaderSettings(){ document.getElementById('readerSettings').classList.toggle('show'); }
+function applyReaderStyles(){
+  const body = document.getElementById('readerBody');
+  body.style.fontSize = readerSettings.fontSize+'px';
+  body.style.lineHeight = readerSettings.lineHeight;
+  const t = THEMES[readerSettings.theme];
+  document.getElementById('reader').style.setProperty('--reader-bg', t.bg);
+  document.getElementById('reader').style.setProperty('--reader-text', t.text);
+  document.querySelectorAll('.theme-dot').forEach(d=>d.classList.remove('selected'));
+  const el = document.getElementById('theme-'+readerSettings.theme);
+  if(el) el.classList.add('selected');
+}
+function changeFontSize(delta){
+  readerSettings.fontSize = Math.max(14, Math.min(30, readerSettings.fontSize+delta));
+  applyReaderStyles(); storeSet('settings:reader', readerSettings);
+}
+function changeLineHeight(delta){
+  readerSettings.lineHeight = Math.max(1.2, Math.min(2.4, +(readerSettings.lineHeight+delta).toFixed(1)));
+  applyReaderStyles(); storeSet('settings:reader', readerSettings);
+}
+function setTheme(theme){
+  readerSettings.theme = theme;
+  applyReaderStyles(); storeSet('settings:reader', readerSettings);
+}
+
+init();
+</script>
+</body>
+</html>
